@@ -3,7 +3,7 @@ let jpdpIRL = "/api/irl";
 let jpdpIML = "/api/iml";
 let ProjectManagementDB = "COLLEGE-DB";
 let pmRelationName = "PROJECT-TABLE";
-let connToken = "90933074|-31949324126823852|90951603";
+let connToken = "90931426|-31949324420636609|90950016";
 
 
 function saveRecNo2LS(jsonObj) {
