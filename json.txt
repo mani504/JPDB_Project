@@ -1,31 +1,80 @@
 import cv2
+import numpy as np
+import os
 import json
+import sys
 
-# Load the JSON file from the file system
-with open('file.json', 'r') as f:
-    data = json.load(f)
+# Function to inpaint based on bounding boxes from JSON
+def inpaint_text_by_bounding_boxes(img, shapes):
+    # Create a mask for inpainting
+    mask = np.zeros(img.shape[:2], dtype="uint8")
 
-# Load the image using the imagePath from the JSON
-image_path = data['imagePath']
-image = cv2.imread(image_path)
-
-# Iterate through the shapes to erase text
-for shape in data['shapes']:
-    if shape['shape_type'] == 'rectangle':
-        # Get points of the rectangle
-        p1 = tuple(map(int, shape['points'][0]))
-        p2 = tuple(map(int, shape['points'][1]))
+    # Iterate through the shapes to extract points and create masks
+    for shape in shapes:
+        points = shape['points']
+        # Extract bounding box coordinates (top-left and bottom-right points)
+        x_min = int(min(points[0][0], points[1][0]))
+        y_min = int(min(points[0][1], points[1][1]))
+        x_max = int(max(points[0][0], points[1][0]))
+        y_max = int(max(points[0][1], points[1][1]))
         
-        # Option 1: Fill the rectangle with a solid color (background color)
-        cv2.rectangle(image, p1, p2, (255, 255, 255), -1)  # White fill
+        # Create the mask for inpainting using the extracted bounding box
+        cv2.rectangle(mask, (x_min, y_min), (x_max, y_max), 255, -1)
 
-        # Option 2: Inpainting (optional, more advanced if needed)
-        # Create a mask for inpainting
-        # mask = cv2.rectangle(np.zeros(image.shape[:2], dtype="uint8"), p1, p2, 255, -1)
-        # image = cv2.inpaint(image, mask, 3, cv2.INPAINT_TELEA)
+    # Inpaint the masked text regions using cv2.INPAINT_TELEA
+    inpainted_img = cv2.inpaint(img, mask, 7, cv2.INPAINT_TELEA)
 
-# Save or display the modified image
-cv2.imwrite('output.jpg', image)
-cv2.imshow('Erased Image', image)
-cv2.waitKey(0)
-cv2.destroyAllWindows()
+    # Post-processing to remove leftover dots or artifacts
+    kernel = np.ones((3, 3), np.uint8)
+    inpainted_img = cv2.morphologyEx(inpainted_img, cv2.MORPH_CLOSE, kernel)  # Dilation followed by erosion
+
+    return inpainted_img
+
+# Function to process the image using bounding boxes from JSON
+def process_image(json_file, output_dir):
+    # Create output directory if it doesn't exist
+    os.makedirs(output_dir, exist_ok=True)
+
+    # Load the JSON file containing bounding boxes
+    with open(json_file, 'r') as f:
+        data = json.load(f)
+    
+    # Extract image path, shapes, and other relevant information from JSON
+    image_path = data['imagePath']
+    shapes = data['shapes']
+
+    # Check if the image path exists
+    if not os.path.exists(image_path):
+        print(f"Image {image_path} not found.")
+        return
+
+    # Read the image
+    img = cv2.imread(image_path)
+    
+    # Inpaint text based on the bounding boxes from the JSON shapes
+    inpainted_img = inpaint_text_by_bounding_boxes(img, shapes)
+    
+    # Save the final image in the output directory
+    output_filename = os.path.basename(image_path)  # Get the image filename
+    output_path = os.path.join(output_dir, output_filename)
+    cv2.imwrite(output_path, inpainted_img)
+
+    print(f"Processing complete. Output image saved as '{output_path}'.")
+
+# Main function to run the script with command-line arguments
+def main():
+    # Check if correct number of arguments are provided
+    if len(sys.argv) != 3:
+        print("Usage: python script_name.py <json_file> <output_directory>")
+        sys.exit(1)
+
+    # Get command-line arguments
+    json_file = sys.argv[1]
+    output_dir = sys.argv[2]
+
+    # Process the image using the provided bounding boxes in the JSON
+    process_image(json_file, output_dir)
+
+# Run the script
+if __name__ == "__main__":
+    main()
