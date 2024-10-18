@@ -1,0 +1,31 @@
+import cv2
+import json
+
+# Load the JSON file from the file system
+with open('file.json', 'r') as f:
+    data = json.load(f)
+
+# Load the image using the imagePath from the JSON
+image_path = data['imagePath']
+image = cv2.imread(image_path)
+
+# Iterate through the shapes to erase text
+for shape in data['shapes']:
+    if shape['shape_type'] == 'rectangle':
+        # Get points of the rectangle
+        p1 = tuple(map(int, shape['points'][0]))
+        p2 = tuple(map(int, shape['points'][1]))
+        
+        # Option 1: Fill the rectangle with a solid color (background color)
+        cv2.rectangle(image, p1, p2, (255, 255, 255), -1)  # White fill
+
+        # Option 2: Inpainting (optional, more advanced if needed)
+        # Create a mask for inpainting
+        # mask = cv2.rectangle(np.zeros(image.shape[:2], dtype="uint8"), p1, p2, 255, -1)
+        # image = cv2.inpaint(image, mask, 3, cv2.INPAINT_TELEA)
+
+# Save or display the modified image
+cv2.imwrite('output.jpg', image)
+cv2.imshow('Erased Image', image)
+cv2.waitKey(0)
+cv2.destroyAllWindows()
